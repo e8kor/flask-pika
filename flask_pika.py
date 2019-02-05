@@ -72,8 +72,14 @@ class Pika(object):
         pika_connection = pika.BlockingConnection(self._pika_connection_params)
         channel = pika_connection.channel()
         self.__DEBUG("Created AMQP Connection and Channel %s" % channel)
-        self.__set_recycle_for_channel(channel)
-        return channel
+
+        # add support context manager
+        def close(channel):
+            self.return_channel(channel)
+        ch = ProxyContextManager(instance=channel, close_callback=close)
+
+        self.__set_recycle_for_channel(ch)
+        return ch
 
 
     def __destroy_channel(self, channel):
@@ -148,11 +154,6 @@ class Pika(object):
         else:
             # create a new channel
             ch = self.__create_channel()
-
-        # add support context manager
-        def close():
-            self.return_channel(ch)
-        ch = ProxyContextManager(instance=ch, close_callback=close)
 
         return ch
 
@@ -272,4 +273,3 @@ class ProxyContextManager(object):
             self.close_callback()
         else:
             self.instance.close()
-
